@@ -1,0 +1,15 @@
+Camp Name: NTU FOP
+Camp Dates: Mon May 20 00:00:00 SGT 2024 - Thu May 23 00:00:00 SGT 2024
+Total Slots: 100
+Location: NS
+Registration Deadline: Fri May 10 00:00:00 SGT 2024
+Staff: ALEXEI
+Faculties: UNIVERSE, 
+Visible to Students: Yes
+Description: Ori
+
+Attendee list:
+
+Committee list:
+1. User: Student ID: 200, Name: CHERN, Email: YCHERN@E.NTU.EDU.SG, Faculty: SCSE
+2. User: Student ID: 203, Name: CALVIN, Email: CT113@E.NTU.EDU.SG, Faculty: SCSE

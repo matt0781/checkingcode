@@ -1,0 +1,2675 @@
+
+
+/********** Package: com.yourdomain., File: MainProgram.java **********/
+
+import java.util.*;
+
+public class MainProgram {
+    public static final String mainObj_filename = "mainObj.ser";
+    public static final Scanner sc = new Scanner(System.in);
+    public static Date currentDate = new Date();
+
+    public static void main(String[] args) {
+        MainObj mainObj = SerializationUtil.loadMainObj(mainObj_filename);
+        if (mainObj == null) {
+            return;
+        }
+
+        AllUser allUser = mainObj.getAllUser();
+        AllCamp allCamp = mainObj.getAllCamp();
+
+        allUser.printAllUser();
+        allCamp.printAllCamp();
+        
+        SerializationUtil.saveObj(mainObj, mainObj_filename);
+
+
+        boolean runProgram = true;
+        while (runProgram) {
+            System.out.println("  █████  █████  ███    ███ ███████ ");
+            System.out.println("██      ██   ██ ████  ████ ██      ");
+            System.out.println("██      ███████ ██ ████ ██ ███████ ");
+            System.out.println("██      ██   ██ ██  ██  ██      ██ ");
+            System.out.println(" ██████ ██   ██ ██      ██ ███████ ");
+            System.out.println("");
+            System.out.println("Welcome to the Camp Application and Management System");
+            System.out.print("\n(1)\tLogin\n(2)\tQuit\nChoice: ");
+            int choice = sc.nextInt();
+            sc.nextLine();
+    
+            switch (choice) {
+                case 1:
+                    User mainUser = AuthenticationMenu.loginMenu(allUser);
+                    if (mainUser == null) {
+                        continue;
+                    }
+                    boolean loop = true;
+                    String menuText = "\nMain menu\n(1)\tEdit profile\n(2)\tCamp menu\n(3)\tLogout\nChoice: ";
+                    String adminMenuText = "\nMain menu\n(1)\tEdit profile\n(2)\tAdd Users\n(3)\tLogout\nChoice: ";
+                    if (mainUser instanceof AdminUser) {
+                        menuText = adminMenuText;
+                    }
+                    while (loop) {
+                         System.out.print(menuText);
+                        int choice2 = MainProgram.sc.nextInt();
+                        MainProgram.sc.nextLine();
+                        switch (choice2) {
+                            case 1:
+                                AuthenticationMenu.authenticationMenu(mainUser);
+                                SerializationUtil.saveObj(mainObj, mainObj_filename);
+                                break;
+                            case 2:
+                                userMenu(mainUser, allUser, allCamp);
+                                SerializationUtil.saveObj(mainObj, mainObj_filename);
+                                break;
+                            default:
+                                loop = false;
+                                break;
+                        }
+                    }
+                    SerializationUtil.saveObj(mainObj, mainObj_filename);
+                    
+                    break;
+                case 2:
+                    runProgram = false;
+                    break;
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+                    break;
+            }
+        }
+        sc.close();
+        
+    }
+
+    private static void userMenu(User mainUser, AllUser allUser, AllCamp allCamp) {
+        if (mainUser instanceof Staff) {
+            Staff mainStaff = (Staff) mainUser;
+            StaffMenu staffMenu = new StaffMenu(mainStaff);
+            staffMenu.mainMenu(allUser, allCamp);
+
+        } else if (mainUser instanceof Student) {
+            Student mainStudent = (Student) mainUser;
+            StudentMenu studentMenu = new StudentMenu(mainStudent);
+            studentMenu.mainMenu(allUser, allCamp);
+        } else {
+            AdminMenu adminmenu = new AdminMenu();
+            adminmenu.mainMenu(allUser, allCamp);
+        }
+        return;
+    }
+}
+
+
+/********** Package: com.yourdomain., File: SystemSimulatedDateManager.java **********/
+
+import java.text.SimpleDateFormat;
+import java.text.ParseException;
+import java.util.Date;
+
+public class SystemSimulatedDateManager {
+    private static Date date = new Date();          //default: actual date in real world
+    private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+
+    public static Date getSystemSimulatedDate() {
+        return date;
+    }
+    public static void setSystemSimulatedDate(String dateString){
+        while (true) {
+            try {
+                date = sdf.parse(dateString);
+                break;
+            } catch (Exception e) {
+                System.err.println("Error parsing the date. Please enter a valid date in yyyy-MM-dd format.");
+            }
+        }
+    }
+}
+
+
+/********** Package: com.yourdomain., File: AdminView.java **********/
+
+import java.util.*;
+
+import Users.User;
+
+public class AdminView {
+    public static void main(String[] args){
+       AllUser allUser = new AllUser();
+        ArrayList<User> newuser = ExcelReader.readExcel("staff_list.xlsx", ExcelReader.ROLE.STAFF);
+        allUser.addMultiUser(newuser);
+        newuser = ExcelReader.readExcel("student_list.xlsx", ExcelReader.ROLE.STUDENT);
+        allUser.addMultiUser(newuser);
+        MainObj mainObj = new MainObj(allUser);
+        SerializationUtil.saveObj(mainObj, MainProgram.mainObj_filename);
+    }
+
+}
+
+
+/********** Package: com.yourdomain.Comment, File: Enquiry.java **********/
+
+import java.util.ArrayList;
+
+public class Enquiry extends Comment {
+    ArrayList<String> replies = new ArrayList<>();
+    
+    public Enquiry(Student student, Camp camp, String comment){
+        this.comment = comment;
+        this.student = student;
+        this.camp = camp;
+        this.commentId = Comment.nextEnquiryId;
+        Comment.nextEnquiryId += 1;
+    }
+
+    public void addReply(String reply){
+        replies.add(reply);
+        this.processed = true;
+    }
+    public ArrayList<String> getReplies(){return this.replies;}
+    public void printComment(){
+        System.out.printf("Enquiry %d:\n", this.commentId);
+        super.printComment();
+        System.out.printf("Replies (%d)\n", replies.size());
+        for(String reply : replies){
+            System.out.println(reply);
+        }
+    }
+}
+
+
+/********** Package: com.yourdomain.Comment, File: Comment.java **********/
+
+import java.io.Serializable;
+
+public abstract class Comment implements Serializable{
+    int commentId;
+    static int nextSuggestionId = 1;
+    static int nextEnquiryId = 1;
+    Student student;
+    Camp camp;
+    String comment;
+    Boolean processed = false;
+
+    public void editComment(String comment){this.comment = comment;}
+    public boolean getProcessed(){return this.processed;}
+
+    public void printComment(){
+        CampInformation campInformation = camp.getCampInformation();
+        System.out.printf("Created by: %s\tCamp: %s\nText: %s\n", student.getName(), campInformation.getName(), this.comment);
+    }
+
+    public Student getStudent(){return this.student;}
+}
+
+
+/********** Package: com.yourdomain.Comment, File: Suggestion.java **********/
+
+public class Suggestion extends Comment{
+    public enum STATUS{APPROVED, REJECTED, PENDING}
+
+    private STATUS status;
+    public Suggestion(Student student, Camp camp, String comment){
+        this.student = student;
+        this.camp = camp;
+        this.comment = comment;
+        this.commentId = Comment.nextSuggestionId;
+        Comment.nextSuggestionId += 1;
+        status = STATUS.PENDING;
+    }
+
+    public void setProcessed(STATUS status){
+        this.processed = true;
+        this.status = status;
+    }
+
+    public void printComment(){
+        System.out.printf("Suggestion %d: %s\n", this.commentId, this.status);
+        super.printComment();
+
+    }
+
+    public Suggestion.STATUS getStatus(){return this.status;}
+}
+
+
+/********** Package: com.yourdomain.Camp, File: CampInformation.java **********/
+
+import java.io.Serializable;
+import java.util.*;
+
+public class CampInformation  implements Serializable{
+    private boolean visible;
+    private String name;
+    private Date[] campDate;
+    private int totalSlot;
+    private String location;
+    private Date registrationDeadline;
+    private Staff staff;
+    private ArrayList<Faculty.FACULTY_TYPE> faculty;
+    private String description;
+    public static final int MAX_COMMITTEE_SLOTS = 10;
+
+    public CampInformation(String name, Date startDate, Date endDate, int totalSlot, String location, Date registrationDeadline, Staff staff, ArrayList<Faculty.FACULTY_TYPE> faculty, Boolean visible, String description) {
+        this.name = name;
+        this.campDate = new Date[2];
+        this.campDate[0] = startDate;
+        this.campDate[1] = endDate;
+        this.totalSlot = totalSlot;
+        this.location = location;
+        this.registrationDeadline = registrationDeadline;
+        this.staff = staff;
+        this.faculty = faculty;
+        this.visible = visible;
+        this.description = description;
+    }
+
+    public boolean isVisible() {
+        return visible;
+    }
+
+    public void setTotalSlot(int newval) {
+        if (newval < 0) {
+            System.out.println("Error: Total slots cannot be negative.");
+        } else {
+            this.totalSlot = newval;
+            System.out.println("Total slots updated to " + newval);
+        }
+    }
+    
+
+    public void setVisible(boolean visible) {
+        this.visible = visible;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String newname) {
+        System.out.println(newname);
+        this.name = newname;
+    }
+
+    public Date[] getCampDate() {
+        return campDate;
+    }
+
+    public void setCampDate(Date[] campDate) {
+        this.campDate = campDate;
+    }
+
+    public int getTotalSlot() {
+        return totalSlot;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public Date getRegistrationDeadline() {
+        return registrationDeadline;
+    }
+
+    public void setRegistrationDeadline(Date registrationDeadline) {
+        this.registrationDeadline = registrationDeadline;
+    }
+
+    public Staff getStaff() {
+        return staff;
+    }
+
+    public void setStaff(Staff staff) {
+        this.staff = staff;
+    }
+
+    public ArrayList<Faculty.FACULTY_TYPE> getFaculty() {
+        return faculty;
+    }
+
+    public void setFaculty(ArrayList<Faculty.FACULTY_TYPE> faculty) {
+        this.faculty = faculty;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getCampInformation() {
+        StringBuilder info = new StringBuilder();
+        info.append("Camp Name: ").append(name).append("\n");
+        info.append("Camp Dates: ").append(campDate[0]).append(" - ").append(campDate[1]).append("\n");
+        info.append("Total Slots: ").append(totalSlot).append("\n");
+        info.append("Location: ").append(location).append("\n");
+        info.append("Registration Deadline: ").append(registrationDeadline).append("\n");
+        info.append("Staff: ").append(staff.getName()).append("\n");
+        info.append("Faculties: ");
+        for (Faculty.FACULTY_TYPE facultyType : faculty) {
+            info.append(facultyType.toString()).append(", ");
+        }
+        info.append("\n");
+        info.append("Visible to Students: ").append(visible ? "Yes" : "No").append("\n");
+        info.append("Description: ").append(description).append("\n");
+
+        return info.toString();
+    }
+
+    public ArrayList<Faculty.FACULTY_TYPE> getFaculties(){return this.faculty;}
+}
+
+
+/********** Package: com.yourdomain.Camp, File: Camp.java **********/
+
+package Camp;
+import java.io.Serializable;
+import java.util.*;
+
+import Comment;
+import Controller;
+import Menu;
+import Users;
+
+public class Camp implements deleteCampInterface, Serializable, Comparable<Camp>{
+
+    private CampInformation campInformation;
+    private ArrayList<Student> attendee = new ArrayList<>();
+    private ArrayList<Student> committee = new ArrayList<>();
+    private ArrayList<Comment> suggestion = new ArrayList<>();
+    private ArrayList<Comment> enquiry = new ArrayList<>();
+    private int campId;
+    private static int nextId = 1;
+
+    public Camp(String name, Date startDate, Date endDate, int totalSlot, String location, Date registrationDeadline,
+            Staff staff, ArrayList<Faculty.FACULTY_TYPE> faculty, Boolean visible, String description) {
+        this.campInformation = new CampInformation(name, startDate, endDate, totalSlot, location, registrationDeadline,
+                staff, faculty, visible, description);
+        this.campId = nextId;
+        nextId += 1;
+    }
+
+    public void editCamp() {
+        if (campInformation != null) {
+
+        }
+    }
+
+    public boolean hasEmptySlot() {
+        return attendee.size() + committee.size() < campInformation.getTotalSlot();
+    }
+
+    public void deleteCamp(Camp camp) {
+        Staff staff = campInformation.getStaff();
+        if (staff != null) {
+            staff.deleteCamp(camp);
+        }
+        for (Student student : attendee) {
+            student.deleteCamp(this);
+        }
+        for (Student student : committee) {
+            student.deleteCamp(this);
+        }
+    }
+
+    public void addAttendee(Student student) {
+        if (this.hasEmptySlot()) {
+            this.attendee.add(student);
+        }
+    }
+
+    public void removeAttendee(Student student) {
+        if (student == null) {
+            return;
+        }
+        this.attendee.remove(student);
+    }
+
+    public void addCommittee(Student student) {
+        if (this.hasEmptySlot() && committee.size() < CampInformation.MAX_COMMITTEE_SLOTS) {
+            this.committee.add(student);
+        }
+    }
+
+    public void setVisibility(Boolean value) {
+        this.campInformation.setVisible(value);
+    }
+
+    public Boolean getVisbility() {
+        return this.campInformation.isVisible();
+    }
+
+    public ArrayList<Student> getAttendee() {
+        return this.attendee;
+    }
+
+    public ArrayList<Student> getCommittee() {
+        return this.committee;
+    }
+
+    public ArrayList<Comment> getSuggestion() {
+        return this.suggestion;
+    }
+
+    public ArrayList<Comment> getEnquiry() {
+        return this.enquiry;
+    }
+
+    public CampInformation getCampInformation() {
+        return this.campInformation;
+    }
+
+    public String getCampDetail() {
+        return campInformation.getCampInformation();
+    }
+
+    public void printCamp() {
+        System.out.println(this.getCampDetail());
+    }
+
+    public void addComment(Comment comment) {
+        if (comment instanceof Suggestion) {
+            this.suggestion.add(comment);
+        } else {
+            this.enquiry.add(comment);
+        }
+    }
+
+    public void removeComment(Comment comment) {
+        if (comment instanceof Suggestion) {
+            try {
+                this.suggestion.remove(comment);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Unable to remove suggestion");
+            }
+        } else {
+            try {
+                this.enquiry.remove(comment);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Unable to remove enquiry");
+            }
+        }
+    }
+
+    public int getCampId() {
+        return this.campId;
+    }
+
+    public Boolean equalsCamp(Camp camp) {
+        return this.campId == camp.getCampId();
+    }
+
+    @Override
+    public int compareTo(Camp otherCamp) {
+        return this.campInformation.getName().compareTo(otherCamp.campInformation.getName());
+    }
+}
+
+
+/********** Package: com.yourdomain.Controller, File: SerializationUtil.java **********/
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+
+public class SerializationUtil {
+
+    private static void deleteFile(String filePath) {
+        File myObj = new File(filePath);
+        myObj.delete();
+    }
+
+    public static void saveObj(Object obj, String filePath) {
+        try {
+            File file = new File(filePath);
+            if (!file.exists()) {
+                file.mkdirs();
+            }
+
+            deleteFile(filePath);
+
+            FileOutputStream fileOut = new FileOutputStream(filePath);
+            ObjectOutputStream objectOut = new ObjectOutputStream(fileOut);
+            objectOut.writeObject(obj);
+            objectOut.close();
+            fileOut.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void addAdmin(MainObj mainObj) {
+        AdminUser newuser = new AdminUser("admin", "admin@ntu.edu.sg", Faculty.FACULTY_TYPE.UNIVERSE);
+        if (mainObj != null && newuser != null) {
+            AllUser allUser = mainObj.getAllUser();
+            if (allUser != null) {
+                allUser.addUser(newuser);
+            }
+        }
+    }
+
+    public static MainObj loadMainObj(String filePath) {
+        File myObj = new File(filePath);
+        MainObj mainObj = null;
+        if (!myObj.exists()) {
+            mainObj = new MainObj();
+            addAdmin(mainObj);
+            SerializationUtil.saveObj(mainObj, filePath);
+        } else {
+            try {
+                FileInputStream fileIn = new FileInputStream(filePath);
+                ObjectInputStream objectIn = new ObjectInputStream(fileIn);
+                mainObj = (MainObj) objectIn.readObject();
+                objectIn.close();
+                fileIn.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
+        return mainObj;
+
+    }
+}
+
+
+/********** Package: com.yourdomain.Controller, File: AllCamp.java **********/
+
+import java.io.Serializable;
+import java.util.*;
+
+public class AllCamp implements Serializable {
+    private ArrayList<Camp> allCamp = new ArrayList<>();
+
+    public void addCamp(Camp camp) {
+        allCamp.add(camp);
+        Collections.sort(allCamp);
+    }
+
+    public void deleteCamp(Camp camp) {
+        allCamp.remove(camp);
+        camp.deleteCamp(camp);
+    }
+
+    public ArrayList<Camp> getCamps() {
+        return this.allCamp;
+    }
+
+    public ArrayList<Camp> filterCamp() {
+        ArrayList<Camp> campArrayList = new ArrayList<>();
+        for (Camp camp : allCamp) {
+            if (camp == null) {
+                continue;
+            }
+            if (camp.getVisbility()) {
+                campArrayList.add(camp);
+            }
+        }
+        Collections.sort(campArrayList);
+        return campArrayList;
+    }
+
+    public void printAllCamp() {
+        for (Camp camp : allCamp) {
+            camp.printCamp();
+        }
+    }
+
+}
+
+
+/********** Package: com.yourdomain.Controller, File: AllUser.java **********/
+
+import java.io.Serializable;
+import java.util.*;
+
+import Users.User;
+
+public class AllUser implements Serializable{
+    private ArrayList<User> userArray = new ArrayList<>();
+
+    public void addMultiUser(ArrayList<User> newArr){
+        for(User usr : newArr){
+            userArray.add(usr);
+        }
+    }
+
+    public void addUser(User newUser) {
+        userArray.add(newUser);
+    }
+
+    public void printAllUser(){
+        for(User user : userArray){
+            System.out.println(user.getUserInfo());
+        }
+    }
+
+    public ArrayList<User> getUserArray(){return this.userArray;}
+}
+
+
+/********** Package: com.yourdomain.Controller, File: ExcelReader.java **********/
+
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import Users.Staff;
+import Users.User;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.*;
+
+public class ExcelReader {
+    public enum ROLE {
+        STAFF, STUDENT
+    };
+
+    public static ArrayList<User> readExcel(String filepath, ROLE role) {
+        try {
+            ArrayList<User> allUsers = new ArrayList<>();
+            FileInputStream fileInputStream = new FileInputStream(new File(filepath));
+            Workbook workbook = new XSSFWorkbook(fileInputStream);
+            Sheet sheet = workbook.getSheetAt(0);
+            workbook.close();
+            int i = 0;
+            HashMap<Integer, ArrayList<String>> data = new HashMap<>();
+            boolean firstRow = true;
+            for (Row row : sheet) {
+                if (firstRow) {
+                    firstRow = false;
+                    continue;
+                }
+                ArrayList<String> arr = new ArrayList<>();
+                boolean isEmptyRow = true;
+                for (Cell cell : row) {
+                    String cellValue = cell.getStringCellValue().trim();
+                    if (cellValue.contains("@") && cellValue.endsWith(";")) {
+                        cellValue = cellValue.substring(0, cellValue.length() - 1);
+                    }
+                    arr.add(cellValue.toUpperCase());
+                    if (!cellValue.isEmpty()) {
+                        isEmptyRow = false;
+                    }
+                }
+                if (!isEmptyRow) {
+                    data.put(i, arr);
+                    i++;
+                }
+            }
+            for (Map.Entry<Integer, ArrayList<String>> entry : data.entrySet()) {
+                int rowNum = entry.getKey();
+                ArrayList<String> rowData = entry.getValue();
+                System.out.print("Row " + rowNum + ": ");
+                for (String value : rowData) {
+                    System.out.print(value + " | ");
+                }
+                System.out.println();
+            }
+            for (Map.Entry<Integer, ArrayList<String>> entry : data.entrySet()) {
+                ArrayList<String> arrayRef = entry.getValue();
+                User temp;
+                if (role == ROLE.STAFF) {
+                    temp = new Staff(arrayRef.get(0), arrayRef.get(1), Faculty.getFacultyType(arrayRef.get(2)));
+                } else {
+                    temp = new Student(arrayRef.get(0), arrayRef.get(1), Faculty.getFacultyType(arrayRef.get(2)));
+                }
+                allUsers.add(temp);
+            }
+            fileInputStream.close();
+            return allUsers;
+        } catch (IOException e) {
+            //e.printStackTrace();
+            return null;
+        }
+    }
+
+}
+
+
+/********** Package: com.yourdomain.Controller, File: MainObj.java **********/
+
+import java.io.Serializable;
+
+public class MainObj implements Serializable{
+    private AllUser allUser;
+    private AllCamp allCamp;
+
+    public MainObj(){
+        allCamp = new AllCamp();
+        allUser = new AllUser();
+    }
+    public MainObj(AllUser allUser){
+        this.allUser = allUser;
+        allCamp = new AllCamp();
+    }
+
+    public AllUser getAllUser(){return this.allUser;}
+    public AllCamp getAllCamp(){return this.allCamp;}
+}
+
+
+/********** Package: com.yourdomain.Controller, File: Report.java **********/
+
+package Controller;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+
+import Users.Student;
+import Users.Camp.Camp;
+
+public class Report{
+
+    public enum ListReportType {
+        ATTENDEE,
+        COMMITTEE,
+        BOTH
+    }
+
+    public static void generateListReport(Camp camp, ListReportType reportType){
+        if(camp == null || reportType == null){return;}
+        String fileName = "report.txt";
+        // Get the current working directory
+        String workingDir = System.getProperty("user.dir");
+        // Combine them to create the file path
+        String filePath = Paths.get(workingDir, fileName).toString();
+        
+        try(FileWriter writer = new FileWriter(filePath)){
+            writer.write(camp.getCampInformation().getCampInformation());
+
+            if (reportType == ListReportType.ATTENDEE || reportType == ListReportType.BOTH) {
+                ArrayList<Student> attendees = camp.getAttendee();
+                writer.append("\nAttendee list:\n");
+                int i =1;
+                for(Student attendee : attendees){
+                    writer.append(i++ + ". " + attendee.getUserInfo() + "\n");
+                }
+            }
+
+        
+            if (reportType == ListReportType.COMMITTEE || reportType == ListReportType.BOTH) {
+                ArrayList<Student> committees = camp.getCommittee();
+                writer.append("\nCommittee list:\n");
+                int j=1;
+                for(Student committee : committees){
+                    writer.append(j++ + ". " + committee.getUserInfo() + "\n");
+                }
+            }
+
+            System.out.println("Report is generated successfully at " + filePath + ".");
+
+        }catch (IOException e) {
+            System.out.println("An error occurred while writing the report: " + e.getMessage());
+        }
+
+        
+
+    }
+
+
+    public static void generatePerformanceReport(Camp camp){
+        if(camp == null){return;}
+        ArrayList<Student> committees = camp.getCommittee();
+        
+
+        String fileName = "performance_report.txt";
+        // Get the current working directory
+        String workingDir = System.getProperty("user.dir");
+        // Combine them to create the file path
+        String filePath = Paths.get(workingDir, fileName).toString();
+
+        try(FileWriter writer = new FileWriter(filePath)){
+            writer.write(camp.getCampInformation().getCampInformation());
+            writer.append("\nCommittee Performance List:\n");
+            int i=1;
+            for(Student committee : committees){
+                writer.append(i++ + ". " + committee.getUserInfo() + ", Points: " + committee.getCommittee().getPoints() + "\n");
+            }
+
+            System.out.println("Report is generated successfully at " + filePath + ".");
+
+        }catch (IOException e) {
+            System.out.println("An error occurred while writing the report: " + e.getMessage());
+        }
+    }
+
+    
+}
+
+/********** Package: com.yourdomain.Users, File: deleteCampInterface.java **********/
+
+package Users;
+
+public interface deleteCampInterface {
+    public void deleteCamp(Camp camp);
+}
+
+
+/********** Package: com.yourdomain.Users, File: User.java **********/
+
+package Users;
+import java.io.Serializable;
+
+
+public abstract class User implements Serializable {
+    private Authentication authentication;
+    private String name;
+    private String email;
+    private Faculty.FACULTY_TYPE facultyType;
+    int id;
+    static int nextStaffId = 100;
+    static int nextStudentId = 200;
+    private Boolean loggedIn = false;
+
+    public boolean getLoggedIn() {
+        return this.loggedIn;
+    }
+
+    public void setLoggedIn(Boolean value) {
+        this.loggedIn = value;
+    }
+
+    public Boolean equals(User anotherUser) {
+        return this.id == anotherUser.getId();
+    }
+
+    public int getId() {
+        return this.id;
+    }
+
+    public Faculty.FACULTY_TYPE getFaculty() {
+        return this.facultyType;
+    }
+
+    public String getName() {
+        return this.name;
+    }
+
+    public String getEmail() {
+        return this.email;
+    }
+
+    public String getUsername() {
+        return this.authentication.getUsername();
+    }
+
+    public Authentication getAuthentication() {
+        return this.authentication;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+        this.authentication = new Authentication(email.substring(0, email.indexOf("@")));
+    }
+
+    public void setFaculty(Faculty.FACULTY_TYPE facultyType) {
+        this.facultyType = facultyType;
+    }
+
+    public String getUserInfo() {
+        return ("ID: " + id + ", Name: " + name + ", Email: " + email + ", Faculty: " + facultyType);
+    }
+
+    public void setAuthenticated(String username, String password) {
+        this.authentication.setAuthenticated(username, password);
+    }
+
+    public boolean getauthenticated() {
+        return this.authentication.getauthenticated();
+    }
+}
+
+
+/********** Package: com.yourdomain.Users, File: AdminUser.java **********/
+
+package Users;
+
+public class AdminUser extends User{
+    public AdminUser(String name, String email, Faculty.FACULTY_TYPE faculty){
+        this.setName(name);
+        this.setEmail(email);
+        this.setFaculty(faculty);
+    }
+
+    public String getUserInfo() {
+        return "User: Admin " + super.getUserInfo();
+    }
+}
+
+
+/********** Package: com.yourdomain.Users, File: Authentication.java **********/
+
+package Users;
+
+import java.io.Serializable;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
+public class Authentication implements Serializable{
+    private String username;
+    private String password = this.encrypt("password");
+    private Boolean authenticated = false;
+
+    public Authentication(String username){
+        this.username = username;
+    }
+
+    public void setPassword(String password){
+        if(authenticated){
+            this.password = this.encrypt(password);
+        }
+        else{
+            System.out.println("Please login to change your password...");
+        }
+    }
+
+    public String getUsername(){return this.username;}
+
+    public void setAuthenticated(String username, String password){
+        this.authenticated = this.username.toLowerCase().equals(username.toLowerCase()) && this.password.equals(this.encrypt(password));
+    }
+
+    public boolean getauthenticated(){return this.authenticated;}
+
+    private String encrypt(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(input.getBytes());
+            byte[] hash = md.digest();
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+}
+
+
+/********** Package: com.yourdomain.Users, File: BusyDate.java **********/
+
+import java.io.Serializable;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
+
+public class BusyDate implements Serializable {
+    private transient ArrayList<Date> busyDates;
+
+    public BusyDate() {
+        busyDates = new ArrayList<>();
+    }
+
+    public boolean isOverlap(Date[] newEventDates) {
+        if (newEventDates.length != 2) {
+            throw new IllegalArgumentException("Invalid input. Array must contain exactly 2 Date objects.");
+        }
+
+        Date newEventStartDate = newEventDates[0];
+        Date newEventEndDate = newEventDates[1];
+
+        for (Date busyDate : busyDates) {
+            if (newEventStartDate.before(busyDate) && newEventEndDate.after(busyDate)) {
+                return true;
+            }
+            if (newEventStartDate.after(busyDate) && newEventStartDate.before(busyDate)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public void addDates(Date[] newEventDates) {
+        if (newEventDates.length != 2) {
+            throw new IllegalArgumentException("Invalid input. Array must contain exactly 2 Date objects.");
+        }
+
+        Date newEventStartDate = newEventDates[0];
+        Date newEventEndDate = newEventDates[1];
+
+        if (isOverlap(newEventDates)) {
+            throw new IllegalArgumentException("Overlap detected. Cannot add overlapping dates.");
+        }
+
+        Date currentDate = newEventStartDate;
+        while (currentDate.before(newEventEndDate) || currentDate.equals(newEventEndDate)) {
+            busyDates.add(currentDate);
+            currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000);
+        }
+    }
+
+    // Custom writeObject method to handle busyDates field during serialization
+    private void writeObject(java.io.ObjectOutputStream out) throws IOException {
+        out.defaultWriteObject();
+        out.writeObject(busyDates);
+    }
+
+    // Custom readObject method to handle busyDates field during deserialization
+    private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        busyDates = (ArrayList<Date>) in.readObject();
+    }
+}
+
+
+/********** Package: com.yourdomain.Users, File: Committee.java **********/
+
+package Users;
+import java.io.Serializable;
+import java.util.*;
+
+
+public class Committee implements Serializable{
+    private Camp camp;
+    private Student student;
+    private int points = 0;
+    
+    public Committee(Camp camp, Student student){
+        this.camp = camp;
+        this.student = student;
+    }
+    public String viewCampDetial(){return this.camp.getCampDetail();}
+    public void createSuggestion(String comment){
+        Suggestion suggestion = new Suggestion(this.student, this.camp, comment);
+        this.camp.addComment(suggestion);
+    }
+    public void viewEnquiry(){
+        ArrayList<Comment> enquiries = camp.getEnquiry();
+        for(Comment comment : enquiries){
+            int i = 1;
+            System.out.printf("%d ->\t", i);
+            comment.printComment();
+            i++;
+        }
+    }
+
+    public void replyEnquiry(Enquiry enquiry){
+        if(enquiry != null){
+            System.out.println("Enter your reply: ");
+            String reply = MainProgram.sc.nextLine();
+            enquiry.addReply(reply);
+            
+        }
+    }
+    public void addPoint(){this.points++;System.out.printf("You have been awarded one point\nYour points: %d\n",getPoints());}
+    public void minusPoint(){this.points--;System.out.printf("One point has been deducted\nYour points: %d\n",getPoints());}
+    public int getPoints(){return this.points;}
+    public Camp getCamp(){return this.camp;}
+    public Student getStudent(){return this.student;}
+
+}
+
+
+/********** Package: com.yourdomain.Users, File: Staff.java **********/
+
+package Users;
+import java.util.*;
+
+
+public class Staff extends User implements deleteCampInterface{
+    private ArrayList<Camp> campsCreated = new ArrayList<Camp>();
+    
+    public Staff(String name, String email, Faculty.FACULTY_TYPE faculty){
+        this.setName(name);
+        this.setEmail(email);
+        this.setFaculty(faculty);
+        this.id = User.nextStaffId;
+        User.nextStaffId += 1;
+    }
+
+    public void setVisibility(Camp camp, Boolean value){
+        if(camp == null){return;}
+        camp.setVisibility(value);
+    }
+
+    public void addCamp(Camp camp){
+        campsCreated.add(camp);
+        Collections.sort(campsCreated);
+    }
+
+    public void deleteCamp(Camp camp){
+        if(campsCreated.contains(camp)){
+            campsCreated.remove(camp);
+        }  
+    }
+    public ArrayList<Camp> getCampsCreated(){return this.campsCreated;}
+
+    public String getUserInfo() {
+        return "User: Staff " + super.getUserInfo();
+    }
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Staff staff = (Staff) o;
+        return id == staff.id;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
+}
+
+
+/********** Package: com.yourdomain.Users, File: Attendee.java **********/
+
+package Users;
+import java.io.Serializable;
+import java.util.*;
+
+
+public class Attendee implements Serializable{
+    Student student;
+    ArrayList<Camp> camp = new ArrayList<>();
+
+    public Attendee(Student student){
+        this.student = student;
+    }
+    public void registerCamp(Camp camp){
+        this.camp.add(camp);
+        Collections.sort(this.camp);
+    }
+
+    public void withdrawCamp(Camp camp){
+        try{
+            this.camp.remove(camp);
+        }
+        catch(Exception e){
+            System.out.println("Camp not in attendee list");
+        }
+    }
+
+    public ArrayList<Camp> getCamps(){return this.camp;}
+}
+
+
+/********** Package: com.yourdomain.Users, File: Student.java **********/
+
+package Users;
+import java.util.*;
+
+
+public class Student extends User implements deleteCampInterface{
+    Committee studentCommittee;
+    Attendee studentAttendee;
+    BusyDate busyDate = new BusyDate();
+    ArrayList<Camp> campBlacklist = new ArrayList<>();
+
+    public Student(String name, String email, Faculty.FACULTY_TYPE faculty){
+        this.setName(name);
+        this.setEmail(email);
+        this.setFaculty(faculty);
+        this.id = User.nextStudentId;
+        User.nextStudentId += 1;
+    }
+
+    public void addAttendeeCamp(Camp camp){
+        if(camp == null){return;}
+        if(campBlacklist.contains(camp)){System.out.println("Unable to join camp you previously quit...");return;}
+        camp.addAttendee(this);
+        if(studentCommittee == null){this.studentAttendee = new Attendee(this);}
+        this.studentAttendee.registerCamp(camp);
+    }
+
+    public void addCommitteeCamp(Camp camp){
+        if(camp == null){return;}
+        camp.addCommittee(this);
+        this.studentCommittee = new Committee(camp, this);
+    }
+
+    public boolean registerCamp(Camp camp, boolean attendee){
+        if(camp == null){return false;}
+        CampInformation campInformation = camp.getCampInformation();
+        if(campInformation == null){return false;}
+        if(busyDate.isOverlap(campInformation.getCampDate())){
+            System.out.println("There's an overlap in your schedule, registration failed!");
+            return false;
+        }
+        if(attendee){
+            this.addAttendeeCamp(camp);
+        }
+        else{
+            this.addCommitteeCamp(camp);
+        }
+        busyDate.addDates(campInformation.getCampDate());
+
+        System.out.printf("Successfully joined as %s\n", attendee ? "attendee" : "committee member");
+        return true;
+    }
+
+    public ArrayList<Camp> getAvailCamp(AllCamp allCamp){
+        if(allCamp == null){return null;}
+        ArrayList<Camp> campArrayList = allCamp.filterCamp();
+        return campArrayList;
+    }
+
+
+    public void withdrawAttendeeCamp(Camp camp){
+        if(camp == null){return;}
+        campBlacklist.add(camp);
+        camp.removeAttendee(this);
+        studentAttendee.withdrawCamp(camp);
+    }
+
+    public Attendee getAttendee(){return this.studentAttendee;}
+    public Committee getCommittee(){return this.studentCommittee;}
+    public boolean inCommittee(){return this.studentCommittee == null;}
+
+    public void deleteCamp(Camp camp){
+        if(studentCommittee != null){
+            if(camp.equalsCamp(this.studentCommittee.getCamp())){
+                this.studentCommittee = null;
+            }
+        }
+        if(studentAttendee != null){
+            ArrayList<Camp> attendeeCampList = this.studentAttendee.getCamps();
+            if(attendeeCampList == null){return;}
+            try{attendeeCampList.remove(camp);}
+            catch(Exception e){System.out.println("Camp does not exist in list");}
+        }
+    }
+
+    public String getUserInfo() {
+        return "User: Student " + super.getUserInfo();
+    }
+}
+
+
+/********** Package: com.yourdomain.Users, File: Faculty.java **********/
+
+package Users;
+
+import java.io.Serializable;
+
+public class Faculty  implements Serializable{
+    enum FACULTY_TYPE {SCSE, EEE, SSS, NBS, CCEB, CEE, MSE, MAE, ADM, SOH, WKWSCI, SBS, SPMS, ASE, LKC, NIE, UNIVERSE};
+    public static FACULTY_TYPE getFacultyType(String facultyName) {
+        try {
+            return FACULTY_TYPE.valueOf(facultyName.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            System.out.println("Unrecognised faculty... Try again");
+            return null;
+        }
+    }
+
+    public static Faculty.FACULTY_TYPE getFacultyFromChoice(int choice) {
+        switch(choice) {
+            case 1: return Faculty.FACULTY_TYPE.SCSE;
+            case 2: return Faculty.FACULTY_TYPE.EEE;
+            case 3: return Faculty.FACULTY_TYPE.SSS;
+            case 4: return Faculty.FACULTY_TYPE.NBS;
+            case 5: return Faculty.FACULTY_TYPE.CCEB;
+            case 6: return Faculty.FACULTY_TYPE.CEE;
+            case 7: return Faculty.FACULTY_TYPE.MSE;
+            case 8: return Faculty.FACULTY_TYPE.MAE;
+            case 9: return Faculty.FACULTY_TYPE.ADM;
+            case 10: return Faculty.FACULTY_TYPE.SOH;
+            case 11: return Faculty.FACULTY_TYPE.WKWSCI;
+            case 12: return Faculty.FACULTY_TYPE.SBS;
+            case 13: return Faculty.FACULTY_TYPE.SPMS;
+            case 14: return Faculty.FACULTY_TYPE.ASE;
+            case 15: return Faculty.FACULTY_TYPE.LKC;
+            case 16: return Faculty.FACULTY_TYPE.NIE;
+            case 17: return Faculty.FACULTY_TYPE.UNIVERSE;
+            default: return null;
+            
+        }
+    }
+    
+
+}
+
+
+/********** Package: com.yourdomain.Menu, File: UserMenuInterface.java **********/
+
+public interface UserMenuInterface {
+    public void mainMenu(AllUser allUser, AllCamp allCamp);
+}
+
+
+/********** Package: com.yourdomain.Menu, File: EnquiryMenu.java **********/
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+
+public class EnquiryMenu {
+
+    public static void viewEnquiry(AllCamp allCamp, User user) {
+        Camp selectedCamp = EnquiryMenu.selectCampToEnquire(allCamp, user);
+        if (selectedCamp == null) {
+            return;
+        }
+
+        ArrayList<Comment> enquiryArrayList = selectedCamp.getEnquiry();
+        if (enquiryArrayList.isEmpty()) {
+            System.out.println("This camp has no enquiries!");
+            return;
+        }
+
+        Boolean isStudent = false;
+        Student student = null;
+        if (user instanceof Student) {
+            isStudent = true;
+            student = (Student) user;
+        }
+        int i = 1;
+        for (Comment comment : enquiryArrayList) {
+            if (isStudent && !student.equals(comment.getStudent())) {
+                continue;
+            }
+            System.out.printf("%d ->\t", i);
+            comment.printComment();
+            i += 1;
+        }
+
+    }
+
+    private static Enquiry selectEnquiry(Camp camp, User user) {
+        if (camp == null) {
+            return null;
+        }
+        ArrayList<Comment> enquiryArrayList = camp.getEnquiry();
+        if (enquiryArrayList.isEmpty()) {
+            System.out.println("No available enquiries!");
+            return null;
+        }
+        if (user instanceof Student) {
+            Student student = (Student) user;
+            ArrayList<Comment> studentEnquirArrayList = new ArrayList<>();
+            for (Comment comment : enquiryArrayList) {
+                if (student.equals(comment.getStudent())) {
+                    studentEnquirArrayList.add(comment);
+                }
+            }
+            enquiryArrayList = studentEnquirArrayList;
+        }
+        System.out.println("\nSelect Enquiry:");
+
+        int i = 1;
+        for (Comment comment : enquiryArrayList) {
+            System.out.printf("%d ->\t", i);
+            comment.printComment();
+            System.out.println();
+            i += 1;
+        }
+        System.out.printf("%d ->\tExit\n", i);
+        System.out.print("\nChoice: ");
+        int choice = MainProgram.sc.nextInt();
+        MainProgram.sc.nextLine();
+        if (choice == i) {
+            return null;
+        }
+        while (choice > enquiryArrayList.size() || choice <= 0) {
+            System.out.print("Invalid input\nChoice: ");
+            choice = MainProgram.sc.nextInt();
+            MainProgram.sc.nextLine();
+        }
+        Comment targetComment = enquiryArrayList.get(choice - 1);
+        if(targetComment instanceof Enquiry){
+            Enquiry targetEnquiry = (Enquiry) targetComment;
+            if(targetEnquiry.getProcessed()){
+                System.out.println("Your enquiry has already been processed");
+                targetEnquiry.printComment();
+            }
+            else{
+                return targetEnquiry;
+            }
+        }
+        return null;
+
+    }
+
+    
+    public static Camp selectCampToEnquire(AllCamp allCamp, User user) {
+
+        ArrayList<Camp> campArrayList = null;
+        Camp selectedCamp = null;
+        if (user instanceof Staff) {
+            campArrayList = ((Staff) user).getCampsCreated();
+            if (campArrayList == null) {
+                return null;
+            }
+            selectedCamp = CampMenu.selectCamp(campArrayList);
+        } else if (user instanceof Student) {
+            campArrayList = FilterCamp.getAvailableCamps(allCamp, ((Student) user));
+            if (campArrayList == null) {
+                System.out.println("No camp available for enquiry\n");
+                return null;
+            }
+            selectedCamp = CampMenu.selectCamp(campArrayList);
+        }
+        return selectedCamp;
+    }
+
+    public static void addEnquiry(AllCamp allCamp, Student student) {
+        Camp camp = EnquiryMenu.selectCampToEnquire(allCamp, student);
+        if (camp == null)
+            return;
+
+        System.out.print("Enter enquiry: ");
+
+        String comment = MainProgram.sc.nextLine();
+        Enquiry enquiry = new Enquiry(student, camp, comment);
+        camp.addComment(enquiry);
+        System.out.println("Enquiry raised");
+        return;
+    }
+
+    public static void editEnquiry(AllCamp allCamp, Student student) {
+        Camp camp = EnquiryMenu.selectCampToEnquire(allCamp, student);
+        if (camp == null)
+            return;
+        Comment enquiry = EnquiryMenu.selectEnquiry(camp, student);
+        if (enquiry == null)
+            return;
+        if (enquiry.getProcessed()) {
+            System.out.println("Enquiry has already been processed!");
+            return;
+        }
+        System.out.println("Enquiry to edit:");
+        enquiry.printComment();
+        System.out.print("Enquiry to replace with: ");
+
+        String editedEnquiry = MainProgram.sc.nextLine();
+        enquiry.editComment(editedEnquiry);
+        System.out.println("\nEnquiry successfully edited!");
+        return;
+    }
+
+    public static void deleteEnquiry(AllCamp allCamp, Student student) {
+        Camp camp = EnquiryMenu.selectCampToEnquire(allCamp, student);
+        if (camp == null)
+            return;
+        Comment enquiry = EnquiryMenu.selectEnquiry(camp, student);
+        if (enquiry == null)
+            return;
+        if (enquiry.getProcessed()) {
+            System.out.println("Enquiry has already been processed!");
+            return;
+        }
+        System.out.print("Are you sure to delete this enquiry? Y/N\tChoice: ");
+
+        String choice = MainProgram.sc.nextLine();
+        if (choice.toLowerCase().equals("y")) {
+            camp.removeComment(enquiry);
+            System.out.println("\n Enquiry deleted!");
+        } else {
+            System.out.println("Enquiry deletion failed.");
+        }
+        return;
+    }
+
+    public static void replyEnquiry(AllCamp allCamp, User user) {
+        Camp selectedCamp = null;
+        if (user instanceof Staff) {
+            selectedCamp = EnquiryMenu.selectCampToEnquire(allCamp, user);
+        } else if (user instanceof Student) {
+            Committee committee = ((Student) user).getCommittee();
+            if (committee == null) {
+                return;
+            }
+            selectedCamp = committee.getCamp();
+        }
+        if (selectedCamp == null) {
+            return;
+        }
+        Enquiry selectedEnquiry = EnquiryMenu.selectEnquiry(selectedCamp, null);
+        if(selectedEnquiry == null){return;}
+        System.out.printf("Enter reply: ");
+        String replyInput = MainProgram.sc.nextLine();
+        LocalDateTime currentDateTime = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        String formattedDateTime = currentDateTime.format(formatter);
+
+        String formattedReply = user.getName() + " (" + formattedDateTime + ") : " + replyInput;
+        selectedEnquiry.addReply(formattedReply);
+        return;
+    }
+}
+
+
+/********** Package: com.yourdomain.Menu, File: SuggestionMenu.java **********/
+
+import java.util.*;
+
+public class SuggestionMenu {
+
+    // public static void suggestionMenuStudent(User user, ArrayList<Camp>
+    // campArrayList) {
+    // Camp targetCamp = CampMenu.selectCamp(campArrayList);
+    // Suggestion selectedSuggestion = selectSuggestion(targetCamp);
+    // if (selectedSuggestion == null) {
+    // return;
+    // }
+    // if (selectedSuggestion.getProcessed() == true) {
+    // System.out.println("Sorry, your suggestion has been processed");
+    // return;
+    // } else {
+    // do {
+    // System.out.println("(1)\tEdit suggestion\n(2)\tDelete
+    // suggestion\n(3)\tExit\nChoice: ");
+    // int editChoice = MainProgram.sc.nextInt();
+    // switch (editChoice) {
+    // case 1:
+    // editSuggestion(selectedSuggestion);
+    // break;
+    // case 2:
+    // deleteSuggestion(targetCamp, selectedSuggestion);
+    // break;
+    // case 3:
+    // return;
+    // default:
+    // System.out.println("Please enter a valid input");
+    // }
+    // } while (true);
+    // }
+    // }
+
+    private static Suggestion selectSuggestion(Camp camp, User user) {
+
+        if (camp == null) {
+            return null;
+        }
+        ArrayList<Comment> suggestionArrayList = camp.getSuggestion();
+        if (suggestionArrayList.isEmpty()) {
+            System.out.println("No available suggestions!");
+            return null;
+        }
+        if (user instanceof Student) {
+            Student student = (Student) user;
+            ArrayList<Comment> studentSuggestionArrayList = new ArrayList<>();
+            for (Comment comment : suggestionArrayList) {
+                if (student.equals(comment.getStudent())) {
+                    studentSuggestionArrayList.add(comment);
+                }
+            }
+            suggestionArrayList = studentSuggestionArrayList;
+        }
+        System.out.println("\nSelect Suggestion:");
+
+        int i = 1;
+        for (Comment comment : suggestionArrayList) {
+            System.out.printf("%d ->\t", i);
+            comment.printComment();
+            System.out.println();
+            i += 1;
+        }
+        System.out.printf("%d ->\tExit\n", i);
+        System.out.print("\nChoice: ");
+        int choice = MainProgram.sc.nextInt();
+        MainProgram.sc.nextLine();
+        if (choice == i) {
+            return null;
+        }
+        while (choice > suggestionArrayList.size() || choice <= 0) {
+            System.out.print("Invalid input\nChoice: ");
+            choice = MainProgram.sc.nextInt();
+            MainProgram.sc.nextLine();
+        }
+        Comment targetComment = suggestionArrayList.get(choice - 1);
+        if (targetComment instanceof Suggestion) {
+            Suggestion targetSuggestion = (Suggestion) targetComment;
+            if (targetSuggestion.getProcessed()) {
+                System.out.printf("Your suggestion has already been processed. It has been %s\n",
+                        targetSuggestion.getStatus().toString());
+                return null;
+            } else {
+                return targetSuggestion;
+            }
+        }
+        return null;
+
+    }
+
+    public static void addSuggestion(Student student) {
+        System.out.println("Enter your suggestion:");
+        String comment = MainProgram.sc.nextLine();
+        Committee committee = student.getCommittee();
+        if (committee == null) {
+            return;
+        }
+        committee.createSuggestion(comment);
+        committee.addPoint();
+        System.out.printf("Suggestion submitted\nYou have been awarded one point\nYour points: %d\n",
+                committee.getPoints());
+        return;
+    }
+
+    public static void editSuggestion(Student student) {
+        if (student == null) {
+            return;
+        }
+        Committee committee = student.getCommittee();
+        if (committee == null) {
+            return;
+        }
+        Camp camp = committee.getCamp();
+        if (camp == null) {
+            return;
+        }
+        Suggestion selectedSuggestion = selectSuggestion(camp, student);
+        if (selectedSuggestion == null) {
+            return;
+        }
+
+        selectedSuggestion.printComment();
+        System.out.printf("Enter your new suggestion:");
+        String newSuggestion = MainProgram.sc.nextLine();
+        selectedSuggestion.editComment(newSuggestion);
+        System.out.println("Your suggestion has been updated successfully");
+    }
+
+    public static void deleteSuggestion(Student student) {
+
+        if (student == null) {
+            return;
+        }
+        Committee committee = student.getCommittee();
+        if (committee == null) {
+            return;
+        }
+        Camp camp = committee.getCamp();
+        if (camp == null) {
+            return;
+        }
+        Suggestion selectedSuggestion = selectSuggestion(camp, student);
+        if (selectedSuggestion == null) {
+            return;
+        }
+
+        selectedSuggestion.printComment();
+
+        System.out.printf("Are you sure you want to delete this suggestion? Y/N\tChoice: ");
+        String choice = MainProgram.sc.nextLine().toLowerCase();
+        if (choice.equals("y")) {
+            camp.removeComment(selectedSuggestion);
+            System.out.println("Suggestion has been deleted");
+        } else if (choice.equals("n")) {
+            System.out.println("Suggestion not deleted");
+        } else {
+            System.out.println("Unrecognised input, returning main menu...");
+        }
+        return;
+    }
+
+    public static void approveSuggestion(Staff staff) {
+        if (staff == null) {
+            return;
+        }
+        Camp selectedCamp = CampMenu.selectCamp(staff.getCampsCreated());
+        Suggestion selectedSuggestion = selectSuggestion(selectedCamp, staff);
+        if (selectedSuggestion == null) {
+            return;
+        }
+        System.out.printf("Approve? (Y/N)\nChoice: ");
+        String choice = MainProgram.sc.nextLine().toLowerCase();
+        if (choice.equals("y")) {
+            selectedSuggestion.setProcessed(Suggestion.STATUS.APPROVED);
+            System.out.println("Suggestion has been approved");
+        } else if (choice.equals("n")) {
+            selectedSuggestion.setProcessed(Suggestion.STATUS.REJECTED);
+            System.out.println("Suggestion has been rejected");
+        } else {
+            System.out.println("Unrecognised input, returning main menu...");
+        }
+        return;
+    }
+
+    public static void viewSuggestion(User user) {
+        Camp targetCamp = null;
+        Boolean isStudent = false;
+        Student student = null;
+        if (user instanceof Student) {
+            student = (Student) user;
+            Committee committee = student.getCommittee();
+            if (committee == null) {
+                return;
+            }
+            targetCamp = committee.getCamp();
+            isStudent = true;
+        } else if (user instanceof Staff) {
+            Staff staff = (Staff) user;
+            targetCamp = CampMenu.selectCamp(staff.getCampsCreated());
+        }
+        if (targetCamp == null) {
+            return;
+        }
+        ArrayList<Comment> commentArrayList = targetCamp.getSuggestion();
+        if (commentArrayList == null) {
+            System.out.println("This camp has no suggestions!");
+            return;
+        }
+        for (Comment comment : commentArrayList) {
+            if (isStudent && !(student.equals(comment.getStudent()))) {
+                continue;
+            }
+            comment.printComment();
+        }
+
+    }
+}
+
+
+/********** Package: com.yourdomain.Menu, File: CommitteeMenu.java **********/
+
+public class CommitteeMenu {
+
+    public static void mainMenu(AllUser allUser, AllCamp allCamp, Student student) {
+        String menuText = "\nWhat are we doing today?\n"
+        + "(1)\tSubmit suggestions\n"
+        + "(2)\tEdit suggestions\n"
+        + "(3)\tDelete my suggestions\n"
+        + "(4)\tView my suggestions\n"
+        + "(5)\tRespond to enquiries\n"
+        + "(6)\tGenerate report\n"
+        + "(7)\tExit\n"
+        + "Choice: ";
+        int choice;
+        do {
+            System.out.print(menuText);
+
+            choice = MainProgram.sc.nextInt();
+            MainProgram.sc.nextLine();
+            switch (choice) {
+                case 1:
+                    SuggestionMenu.addSuggestion(student);
+                    break;
+                case 2:
+                    SuggestionMenu.editSuggestion(student);
+                    break;
+                case 3:
+                    SuggestionMenu.deleteSuggestion(student);
+                    break;
+                case 4:
+                    SuggestionMenu.viewSuggestion(student);
+                    break;
+                case 5:
+                    EnquiryMenu.replyEnquiry(allCamp, student);
+                    break;
+                case 6: // generate report
+                    ReportMenu.displayReportMenu(student);
+                    break;
+                case 7: // quit program
+                    return;
+                default:
+                    System.out.println("Sorry, please enter a valid input.");
+
+            }
+        } while (true);
+
+    }
+}
+
+
+/********** Package: com.yourdomain.Menu, File: CampMenu.java **********/
+
+import java.text.SimpleDateFormat;
+import java.util.*;
+
+public class CampMenu {
+    public static Camp selectCamp(ArrayList<Camp> campArrayList) {
+        if (campArrayList.isEmpty()) {
+            System.out.println("No camps to choose to! Returning to main menu...");
+            return null;
+        }
+
+        System.out.println("\nSelect camp:");
+        while (true) {
+            int i = 1;
+            for (Camp camp : campArrayList) {
+                CampInformation campInformation = camp.getCampInformation();
+                if (campInformation == null) {
+                    continue;
+                }
+                System.out.printf("%d ->\t%s\n", i, campInformation.getName());
+                i += 1;
+            }
+            System.out.printf("%d ->\tExit\n", i);
+            System.out.print("\nChoice: ");
+            int choice = MainProgram.sc.nextInt();
+            MainProgram.sc.nextLine();
+            if (choice == i) {
+                return null;
+            }
+            while (choice > campArrayList.size() || choice <= 0) {
+                System.out.print("Invalid input\nChoice: ");
+                choice = MainProgram.sc.nextInt();
+                MainProgram.sc.nextLine();
+            }
+            Camp targetCamp = campArrayList.get(choice - 1);
+            System.out.printf("\n%s selected\n", targetCamp.getCampInformation().getName());
+            return targetCamp;
+        }
+    }
+
+    public static void viewAllCamps(ArrayList<Camp> campArrayList) {
+        int i = 1;
+        for (Camp camp : campArrayList) {
+            System.out.printf("\n%d ->\t", i);
+            i += 1;
+            camp.printCamp();
+        }
+    }
+
+    public static void createCamp(AllUser allUser, AllCamp allCamp, Staff staff) {
+
+        System.out.println("Let's create a camp!");
+
+        System.out.print("Camp name: ");
+        String name = MainProgram.sc.nextLine();
+
+        System.out.print("Camp description: ");
+        String description = MainProgram.sc.nextLine();
+
+        int totalSlot = 0;
+        boolean validTotalSlots = false;
+        while (!validTotalSlots) {
+            try {
+                System.out.print("Total slots: ");
+                totalSlot = MainProgram.sc.nextInt();
+                MainProgram.sc.nextLine();
+                if (totalSlot < 0) {
+                    continue;
+                }
+                validTotalSlots = true;
+            } catch (InputMismatchException e) {
+                System.err.println("Invalid input. Please enter a valid integer.");
+                MainProgram.sc.nextLine();
+            }
+        }
+
+        System.out.print("Location: ");
+        String location = MainProgram.sc.nextLine();
+
+        ArrayList<Faculty.FACULTY_TYPE> facultyArrayList = new ArrayList<>();
+        System.out.println("Choose the faculties that can participate:");
+        System.out.println(
+                "1.SCSE, 2.EEE, 3.SSS, 4.NBS, 5.CCEB, 6.CEE, 7.MSE, 8.MAE, 9.ADM, 10.SOH, 11.WKWSCI, 12.SBS, 13.SPMS, 14.ASE, 15.LKC, 16.NIE, 17.All Faculties, 18.Exit");
+        int facultyChoice;
+        int faculty_counter = 1;
+        do {
+            System.out.printf("Faculty %d: ", faculty_counter);
+            faculty_counter += 1;
+            facultyChoice = MainProgram.sc.nextInt();
+            MainProgram.sc.nextLine();
+
+            if (facultyChoice == 17) {
+                facultyArrayList.clear();
+                facultyArrayList.add(Faculty.FACULTY_TYPE.UNIVERSE);
+                break;
+            } else {
+                Faculty.FACULTY_TYPE choice = Faculty.getFacultyFromChoice(facultyChoice);
+                if (choice == null) {
+                    continue;
+                }
+                facultyArrayList.add(choice);
+            }
+        } while (facultyChoice != 18);
+
+        int visibilityChoice = 0;
+        boolean validVisibilityChoice = false;
+        while (!validVisibilityChoice) {
+            try {
+                System.out.print("Visibility:\n1. Visible to students\t2. Not visible to students\nChoice: ");
+                visibilityChoice = MainProgram.sc.nextInt();
+                MainProgram.sc.nextLine();
+                validVisibilityChoice = true;
+            } catch (InputMismatchException e) {
+                System.err.println("Invalid input. Please enter 1 for visible or 2 for not visible.");
+                MainProgram.sc.nextLine();
+            }
+        }
+        boolean visible = (visibilityChoice == 1);
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        Date startDate = null;
+        Date endDate = null;
+        Date registrationDate = null;
+
+        while (true) {
+            try {
+                System.out.print("Camp commencement date in yyyy-MM-dd format: ");
+                String dateString = MainProgram.sc.nextLine();
+                startDate = sdf.parse(dateString);
+                break;
+            } catch (Exception e) {
+                System.err.println("Error parsing the date. Please enter a valid date in yyyy-MM-dd format.");
+            }
+        }
+
+        while (true) {
+            try {
+                System.out.print("Camp end date in yyyy-MM-dd format: ");
+                String dateString = MainProgram.sc.nextLine();
+                endDate = sdf.parse(dateString);
+
+                if (endDate.before(startDate)) {
+                    System.err.println("End date must be after the commencement date.");
+                    continue;
+                }
+                break;
+            } catch (Exception e) {
+                System.err.println("Error parsing the date. Please enter a valid date in yyyy-MM-dd format.");
+            }
+        }
+
+        while (true) {
+            try {
+                System.out.print("Camp registration deadline in yyyy-MM-dd format: ");
+                String dateString = MainProgram.sc.nextLine();
+                registrationDate = sdf.parse(dateString);
+
+                if (registrationDate.after(startDate)) {
+                    System.err.println("Registration deadline must be before the commencement date.");
+                    continue;
+                }
+                break;
+            } catch (Exception e) {
+                System.err.println("Error parsing the date. Please enter a valid date in yyyy-MM-dd format.");
+            }
+
+        }
+        Camp newCamp = new Camp(name, startDate, endDate, totalSlot, location, registrationDate, staff,
+                facultyArrayList, visible, description);
+        staff.addCamp(newCamp);
+        allCamp.addCamp(newCamp);
+    }
+
+    public static void editCamps(Staff staff) {
+        System.out.println("Which camp would you like to edit?");
+        Camp editCamp = CampMenu.selectCamp(staff.getCampsCreated());
+        if (editCamp == null) {
+            return;
+        }
+        CampInformation campInformation = editCamp.getCampInformation();
+
+        System.out.println(campInformation.getCampInformation());
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        while (true) {
+            System.out.print(
+                    "Choose what aspect you would like to edit:\n(1)\tCamp Name\n(2)\tCamp Dates\n(3)\tTotal Slots\n(4)\tLocation\n(5)\tRegistration Deadline\n(6)\tFaculties\n(7)\tVisibility\n(8)\tDescription\n(9)\tExit\nChoice: ");
+            int choice = MainProgram.sc.nextInt();
+            MainProgram.sc.nextLine();
+
+            switch (choice) {
+                case 1:
+                    System.out.print("Enter new camp name: ");
+                    String newName = MainProgram.sc.nextLine();
+                    campInformation.setName(newName);
+                    break;
+                case 2:
+
+                    Date startDate = null;
+                    Date endDate = null;
+
+                    while (true) {
+                        try {
+                            System.out.print("Camp new commencement date in yyyy-MM-dd format: ");
+                            String dateString = MainProgram.sc.nextLine();
+                            startDate = sdf.parse(dateString);
+                            break;
+                        } catch (Exception e) {
+                            System.err
+                                    .println("Error parsing the date. Please enter a valid date in yyyy-MM-dd format.");
+                        }
+                    }
+
+                    while (true) {
+                        try {
+                            System.out.print("Camp new end date in yyyy-MM-dd format: ");
+                            String dateString = MainProgram.sc.nextLine();
+                            endDate = sdf.parse(dateString);
+
+                            if (endDate.before(startDate)) {
+                                System.err.println("End date must be after the commencement date.");
+                                continue;
+                            }
+                            break;
+                        } catch (Exception e) {
+                            System.err
+                                    .println("Error parsing the date. Please enter a valid date in yyyy-MM-dd format.");
+                        }
+                    }
+                    Date[] dateArray = { startDate, endDate };
+                    campInformation.setCampDate(dateArray);
+                    break;
+                case 3:
+
+                    int newTotalSlots = campInformation.getTotalSlot();
+                    boolean validTotalSlots = false;
+                    while (!validTotalSlots) {
+                        try {
+                            System.out.print("Enter new total slots: ");
+                            newTotalSlots = MainProgram.sc.nextInt();
+                            MainProgram.sc.nextLine();
+                            if (newTotalSlots < 0) {
+                                continue;
+                            }
+                            validTotalSlots = true;
+                        } catch (InputMismatchException e) {
+                            System.err.println("Invalid input. Please enter a valid integer.");
+                            MainProgram.sc.nextLine();
+                        }
+                    }
+                    campInformation.setTotalSlot(newTotalSlots);
+                    break;
+                case 4:
+                    System.out.print("Enter new location: ");
+                    String newLocation = MainProgram.sc.nextLine();
+                    campInformation.setLocation(newLocation);
+                    break;
+                case 5:
+                    Date newRegistrationDate = null;
+                    Date currentStartDate = campInformation.getCampDate()[0];
+                    while (true) {
+                        try {
+                            System.out.print("Camp commencement date in yyyy-MM-dd format: ");
+                            String dateString = MainProgram.sc.nextLine();
+                            newRegistrationDate = sdf.parse(dateString);
+                            if (currentStartDate.before(newRegistrationDate)) {
+                                continue;
+                            }
+                            campInformation.setRegistrationDeadline(newRegistrationDate);
+                            break;
+                        } catch (Exception e) {
+                            System.err
+                                    .println("Error parsing the date. Please enter a valid date in yyyy-MM-dd format.");
+                        }
+                    }
+                    break;
+
+                case 6:
+                    System.out.println("\nCurrent faculties:");
+
+                    int facultyEditChoice = 0;
+                    do {
+                        int i = 1;
+                        for (Faculty.FACULTY_TYPE faculty : campInformation.getFaculties()) {
+                            System.out.printf("%d->\t%s\n", i, faculty);
+                            i += 1;
+                        }
+                        System.out.print(
+                                "\nDo you want to: \n(1)\tAdd a faculty\n(2)\tRemove a faculty\n(3)\tExit\nChoice: ");
+                        facultyEditChoice = MainProgram.sc.nextInt();
+                        MainProgram.sc.nextLine();
+
+                        switch (facultyEditChoice) {
+                            case 1:
+                                System.out.println("Choose the faculties that can participate:");
+                                System.out.println(
+                                        "1.SCSE, 2.EEE, 3.SSS, 4.NBS, 5.CCEB, 6.CEE, 7.MSE, 8.MAE, 9.ADM, 10.SOH, 11.WKWSCI, 12.SBS, 13.SPMS, 14.ASE, 15.LKC, 16.NIE, 17.All Faculties, 18.Exit");
+                                System.out.print("Faculty: ");
+                                int addFacultyChoice = MainProgram.sc.nextInt();
+                                MainProgram.sc.nextLine();
+                                if (Faculty.getFacultyFromChoice(addFacultyChoice) == Faculty.FACULTY_TYPE.UNIVERSE) {
+                                    ArrayList<Faculty.FACULTY_TYPE> facultyArrayList = campInformation.getFaculties();
+                                    facultyArrayList.clear();
+                                    facultyArrayList.add(Faculty.FACULTY_TYPE.UNIVERSE);
+                                }
+                                if (!campInformation.getFaculties()
+                                        .contains(Faculty.getFacultyFromChoice(addFacultyChoice))) {
+                                    campInformation.getFaculties().add(Faculty.getFacultyFromChoice(addFacultyChoice));
+                                } else {
+                                    System.err.println("Faculty already added.");
+                                }
+                                break;
+
+                            case 2:
+                                System.out.println("Choose the faculties to remove:");
+                                System.out.println(
+                                        "1.SCSE, 2.EEE, 3.SSS, 4.NBS, 5.CCEB, 6.CEE, 7.MSE, 8.MAE, 9.ADM, 10.SOH, 11.WKWSCI, 12.SBS, 13.SPMS, 14.ASE, 15.LKC, 16.NIE, 17.All Faculties, 18.Exit");
+                                int removeFacultyChoice = MainProgram.sc.nextInt();
+                                MainProgram.sc.nextLine();
+                                Faculty.FACULTY_TYPE targetFaculty = Faculty.getFacultyFromChoice(removeFacultyChoice);
+                                if (campInformation.getFaculties().contains(targetFaculty)) {
+                                    System.out.println("Removing " + targetFaculty);
+                                    campInformation.getFaculties().remove(targetFaculty);
+                                } else {
+                                    System.err.println("Faculty not found in the list.");
+                                }
+                                break;
+
+                            case 3:
+                                return;
+
+                            default:
+                                System.err.println("Invalid choice.");
+                                break;
+                        }
+                    } while (facultyEditChoice < 3 && facultyEditChoice > 0);
+                    break;
+
+                case 7:
+                    System.out.print("Change visibility (1 for visible, 2 for not visible): ");
+                    int visibilityChoice = MainProgram.sc.nextInt();
+                    campInformation.setVisible(visibilityChoice == 1);
+                    break;
+                case 8:
+                    System.out.print("Enter new description: ");
+                    String newDescription = MainProgram.sc.nextLine();
+                    campInformation.setDescription(newDescription);
+                    break;
+                case 9:
+                    return;
+                default:
+                    System.err.println("Invalid choice. Please enter a valid option.");
+                    break;
+            }
+        }
+
+    }
+
+    public static void deleteCamp(AllUser allUser, AllCamp allCamp, Staff staff) {
+
+        Camp deleteCamp = selectCamp(staff.getCampsCreated());
+        if (deleteCamp == null) {
+            return;
+        }
+        CampInformation campInformation = deleteCamp.getCampInformation();
+        String campName;
+        if (campInformation == null) {
+            campName = "";
+        } else {
+            campName = " " + campInformation.getName();
+        }
+        System.out.printf("Are you sure you want to delete%s camp? Y/N\tChoice: ", campName);
+        String choice = MainProgram.sc.nextLine();
+        if (choice.toLowerCase().equals("y")) {
+            allCamp.deleteCamp(deleteCamp);
+        } else {
+            System.out.println("Camp deletion failed. Returning to main menu...");
+        }
+    }
+
+    public static void joinCamp(AllUser allUser, AllCamp allCamp, Student student) {
+
+        ArrayList<Camp> availCampArrayList = FilterCamp.getSignUpCamp(allCamp, student);
+        Camp selectedCamp = selectCamp(availCampArrayList);
+        if (selectedCamp == null) {
+            return;
+        }
+
+        Date currentDate = SystemSimulatedDateManager.getSystemSimulatedDate();
+        Date registrationDeadLine = selectedCamp.getCampInformation().getRegistrationDeadline();
+        if (currentDate.after(registrationDeadLine)) {
+            System.out.println("Sorry, the registration deadline for this camp has passed.");
+            return;
+        }
+
+        boolean attendee = true;
+        if (student.getCommittee() == null) {
+            System.out.print("Do you want to join as a committee member or attendee? C/A\nChoice: ");
+            if (MainProgram.sc.nextLine().toLowerCase().equals("c")) {
+                attendee = false;
+            }
+        }
+        student.registerCamp(selectedCamp, attendee);
+    }
+
+    public static void viewCampMembers(AllUser allUser, AllCamp allCamp) {
+        Camp targetCamp = selectCamp(allCamp.getCamps());
+        if (targetCamp == null) {
+            return;
+        }
+        System.out.printf("Attendees (%d):\n", targetCamp.getAttendee().size());
+        int counter = 1;
+        for (Student student : targetCamp.getAttendee()) {
+            System.out.printf("%d->\t%s\n", counter, student.getName());
+            counter += 1;
+        }
+
+        System.out.printf("Committee (%d):\n", targetCamp.getCommittee().size());
+        counter = 1;
+        for (Student student : targetCamp.getCommittee()) {
+            System.out.printf("%d->\t%s\n", counter, student.getName());
+            counter += 1;
+        }
+    }
+
+    public static void viewJoinedCamps(Student student) {
+        if (student == null) {
+            return;
+        }
+        if (student.getCommittee() != null) {
+            Camp targetCamp = student.getCommittee().getCamp();
+            if (targetCamp == null) {
+                return;
+            }
+            CampInformation targetCampInformation = targetCamp.getCampInformation();
+            if (targetCampInformation == null) {
+                return;
+            }
+            System.out.printf("Committee member of: %s\n", targetCampInformation.getName());
+        }
+        if (student.getAttendee() != null) {
+            ArrayList<Camp> campArrayList = student.getAttendee().getCamps();
+            if (campArrayList == null) {
+                return;
+            }
+            int i = 1;
+            for (Camp camp : campArrayList) {
+                System.out.printf("%d->\t", i);
+                camp.printCamp();
+                System.out.println();
+                i += 1;
+            }
+        }
+    }
+
+    public static void viewAvailableCamps(AllUser allUser, AllCamp allCamp, Student student) {
+
+        ArrayList<Camp> availCampArrayList = FilterCamp.getAvailableCamps(allCamp, student);
+        if (availCampArrayList.isEmpty()) {
+            System.out.println("No camp available to view");
+            return;
+        }
+        // change order of availCampArrayList by different filter options & print it
+
+        Camp selectedCamp = selectCamp(availCampArrayList);
+        if (selectedCamp == null)
+            return;
+        selectedCamp.printCamp();
+        return;
+    }
+
+}
+
+/********** Package: com.yourdomain.Menu, File: StudentMenu.java **********/
+
+public class StudentMenu implements UserMenuInterface{
+    private Student student;
+
+    public StudentMenu(Student student) {
+        this.student = student;
+    }
+
+    public void mainMenu(AllUser allUser, AllCamp allCamp) {
+        String menuText = "\nWhat are we doing today?\n(1)\tJoin camp\n(2)\tView available camps\n(3)\tView joined camps\n(4)\tEnquire about one Camp\n(5)\tEdit your enquiry\n(6)\tDelete your enquiry\n(7)\tView enquries\n";
+        if (student.getCommittee() != null) {
+            menuText += "(8)\tCommittee Menu\n(9)\tExit\nChoice: ";
+        } else {
+            menuText += "(8)\tExit\nChoice: ";
+        }
+        System.out.print(menuText);
+
+        int choice = MainProgram.sc.nextInt();
+        MainProgram.sc.nextLine();
+        while (true) {
+            switch (choice) {
+                case 1:
+                    CampMenu.joinCamp(allUser, allCamp, this.student);
+                    break;
+                case 2:
+                    CampMenu.viewAvailableCamps(allUser, allCamp, student);
+                    break; // need to change for filter
+                case 3:
+                    CampMenu.viewJoinedCamps(student);
+                    break;
+                case 4:
+                    EnquiryMenu.addEnquiry(allCamp, student);
+                    break;
+                case 5:
+                    EnquiryMenu.editEnquiry(allCamp, student);
+                    break;
+                case 6:
+                    EnquiryMenu.deleteEnquiry(allCamp, student);
+                    break;
+                case 7:
+                    EnquiryMenu.viewEnquiry(allCamp, student);
+                    break;
+                case 8:
+                    if (student.getCommittee() != null) {
+                        CommitteeMenu.mainMenu(allUser, allCamp, student);
+                    }
+                default:
+                    return;
+            }
+            System.out.print(menuText);
+            choice = MainProgram.sc.nextInt();
+            MainProgram.sc.nextLine();
+        }
+
+    }
+}
+
+
+/********** Package: com.yourdomain.Menu, File: AdminMenu.java **********/
+
+import java.util.*;
+
+import org.apache.poi.EmptyFileException;
+
+import Users.User;
+
+import java.io.File;
+
+public class AdminMenu implements UserMenuInterface{
+
+    public void mainMenu(AllUser allUser, AllCamp allCamp) {
+        System.out.println("\nList of file that can be added:");
+        Integer profilechoice = -1;
+        String selectedFile = null;
+        int fileChoice = -1;
+
+        File dir = new File("./xlsxLISTfolder");
+        File[] files = dir.listFiles((d, name) -> name.endsWith(".xlsx"));
+        if (files.length == 0) {
+            System.out.println("Error! No xlsx file found!");
+            return;
+        }
+        if (files != null && files.length > 0) {
+            int i = 1;
+            for (; i <= files.length; i++) {
+                System.out.printf("(%d)\t%s\n", i, files[i - 1].getName());
+            }
+            System.out.printf("(%d)\tExit\n", i);
+
+        }
+
+        do {
+            System.out.print("\nSelect a file by number: ");
+            fileChoice = MainProgram.sc.nextInt();
+            MainProgram.sc.nextLine();
+
+        } while (!(fileChoice > 0 && fileChoice <= files.length + 1));
+        if(fileChoice == files.length + 1){return;}
+        selectedFile = files[fileChoice - 1].getName();
+        System.out.println("Selected file: " + selectedFile);
+        String filePath = "./xlsxLISTfolder/" + selectedFile;
+
+        do {
+            System.out.printf("\nSelect type:\n(1)\tStaff\n(2)\tStudent\n" + //
+                    "Choice: ");
+            profilechoice = MainProgram.sc.nextInt();
+            MainProgram.sc.nextLine();
+        } while (profilechoice != 1 && profilechoice != 2);
+
+        ExcelReader.ROLE role = ExcelReader.ROLE.STAFF;
+        if (profilechoice == 2) {
+            role = ExcelReader.ROLE.STUDENT;
+        }
+        try {
+            ArrayList<User> newuser = ExcelReader.readExcel(filePath, role);
+            allUser.addMultiUser(newuser);
+            SerializationUtil.saveObj(allUser, MainProgram.mainObj_filename);
+            System.out.printf("\nSuccesfully added\n");
+            return;
+
+        } catch (EmptyFileException e) {
+            System.out.println("No user information found in selected file.");
+            return;
+        } catch (Exception e) {
+            System.out.printf("\nOperation failed!\n");
+            return;
+        }
+    }
+}
+
+/********** Package: com.yourdomain.Menu, File: ReportMenu.java **********/
+
+import java.util.ArrayList;
+import java.util.Scanner;
+
+public class ReportMenu {
+
+    private static Scanner sc = new Scanner(System.in);
+
+     public static void displayReportMenu(User user) {
+        Camp selectedCamp = null;
+
+        try{
+            if (user instanceof Staff){
+                Staff staff = (Staff) user;
+                selectedCamp = CampMenu.selectCamp(staff.getCampsCreated());
+            } 
+            else if (user instanceof Student){ // using the committee role
+                Student student = (Student) user;
+                selectedCamp = student.getCommittee().getCamp();
+            }
+        } catch (NullPointerException e){ 
+            System.out.println("No camp can be selected for report generation. Returning to the previous menu...");
+            return;
+        }
+        
+        if (selectedCamp == null) {
+            System.out.println("No camp can be selected for report generation. Returning to the previous menu...");
+            return;
+        }
+
+        String menuText = "\nWhat type of report do you want to generate?\n(1)\tAttendee list\n(2)\tCommittee list\n"+
+        "(3)\tBoth Attendee and Committee lists\n";
+        if (user instanceof Staff)
+            menuText += "(4)\tCommittee Performance Report\n(5)\tQuit\nChoice: ";
+        else if (user instanceof Student)
+            menuText += "(4)\tQuit\nChoice: ";
+
+        System.out.printf(menuText);
+
+        int reportTypeChoice = sc.nextInt();
+        switch (reportTypeChoice) {
+            case 1:
+                Report.generateListReport(selectedCamp, Report.ListReportType.ATTENDEE);
+                break;
+            case 2:
+                Report.generateListReport(selectedCamp, Report.ListReportType.COMMITTEE);
+                break;
+            case 3:
+                Report.generateListReport(selectedCamp, Report.ListReportType.BOTH);
+                break;
+            case 4:
+                if (user instanceof Staff)
+                    Report.generatePerformanceReport(selectedCamp);
+                    break;
+            default:
+                System.out.println("Quitting report generation. Returning to the previous menu...");
+                return;
+        }
+    }
+
+}
+
+/********** Package: com.yourdomain.Menu, File: FilterCamp.java **********/
+
+import java.util.*;
+
+public class FilterCamp {
+    public static ArrayList<Camp> getSignUpCamp(AllCamp allCamp, Student student){
+        ArrayList<Camp> campArrayList = new ArrayList<>();
+        ArrayList<Camp> allCampArrayList = allCamp.getCamps();
+        
+        for(Camp camp : allCampArrayList){
+            ArrayList<Student> attendee = camp.getAttendee();
+            ArrayList<Student> committee = camp.getCommittee();
+            CampInformation campInformation = camp.getCampInformation();
+            if(attendee == null || committee == null || campInformation == null){continue;}
+            ArrayList<Faculty.FACULTY_TYPE> facultyArrayList = campInformation.getFaculty();
+            if(camp.getVisbility() && !attendee.contains(student) && !committee.contains(student) && (facultyArrayList.contains(student.getFaculty()) || facultyArrayList.contains(Faculty.FACULTY_TYPE.UNIVERSE))){
+                campArrayList.add(camp);
+            }
+
+        }
+        return campArrayList;
+    }
+    public static ArrayList<Camp> getAvailableCamps(AllCamp allCamp, Student student){
+        ArrayList<Camp> campArrayList = new ArrayList<>();
+        ArrayList<Camp> allCampArrayList = allCamp.getCamps();
+        
+        for(Camp camp : allCampArrayList){
+            CampInformation campInformation = camp.getCampInformation();
+            if(campInformation == null){continue;}
+            ArrayList<Faculty.FACULTY_TYPE> facultyArrayList = campInformation.getFaculty();
+
+            if(camp.getVisbility() && (facultyArrayList.contains(student.getFaculty()) || facultyArrayList.contains(Faculty.FACULTY_TYPE.UNIVERSE))){
+                campArrayList.add(camp);
+            }
+
+        }
+        return campArrayList;
+    }
+}
+
+
+/********** Package: com.yourdomain.Menu, File: StaffMenu.java **********/
+
+public class StaffMenu implements UserMenuInterface {
+    private Staff staff;
+
+    public StaffMenu(Staff staff) {
+        this.staff = staff;
+    }
+
+    public void mainMenu(AllUser allUser, AllCamp allCamp) {
+        String menuText = "\nWhat are we doing today?\n"
+                + "(1)\tCreate camp\n"
+                + "(2)\tView all camps\n"
+                + "(3)\tEdit Camp\n"
+                + "(4)\tView Enquiry\n"
+                + "(5)\tReply Enquiry\n"
+                + "(6)\tDelete Camp\n"
+                + "(7)\tView students in camp\n"
+                + "(8)\tGenerate Report\n"
+                + "(9)\tApprove Suggestion\n"
+                + "(10)\tView Suggestion\n"
+                + "(11)\tExit\nChoice: ";
+        System.out.print(menuText);
+
+        int choice = MainProgram.sc.nextInt();
+        MainProgram.sc.nextLine();
+        while (true) {
+            switch (choice) {
+                case 1:
+                    CampMenu.createCamp(allUser, allCamp, this.staff);
+                    break;
+                case 2:
+                    CampMenu.viewAllCamps(allCamp.getCamps());
+                    break;
+                case 3:
+                    CampMenu.editCamps(this.staff);
+                    break;
+                case 4:
+                    EnquiryMenu.viewEnquiry(allCamp, staff);
+                    break;
+                case 5:
+                    EnquiryMenu.replyEnquiry(allCamp, staff);
+                    break;
+                case 6:
+                    CampMenu.deleteCamp(allUser, allCamp, staff);
+                    break;
+                case 7:
+                    CampMenu.viewCampMembers(allUser, allCamp);
+                    break;
+                case 8:
+                    ReportMenu.displayReportMenu(staff);
+                    break;
+                case 9:
+                    SuggestionMenu.approveSuggestion(staff);
+                    break;
+                case 10:
+                    SuggestionMenu.viewSuggestion(staff);
+                    break;
+                default:
+                    return;
+            }
+            System.out.print(menuText);
+            choice = MainProgram.sc.nextInt();
+            MainProgram.sc.nextLine();
+        }
+
+    }
+
+}
+
+
+/********** Package: com.yourdomain.Menu, File: AuthenticationMenu.java **********/
+
+import java.util.*;
+
+import Users.User;
+
+public class AuthenticationMenu {
+    public static User loginMenu(AllUser allUser){
+        int retry = 3;
+        
+        ArrayList<User> userArray = allUser.getUserArray();
+
+        System.out.println("\nEnter username and password to log in");
+        while(true){System.out.print("Username: ");
+        String username = MainProgram.sc.nextLine();
+       
+        for(User user : userArray){
+            if(username.toLowerCase().equals(user.getUsername().toLowerCase())){
+                System.out.printf("Hello, %s! Key in your password to proceed\n", user.getName());
+                do{
+                    System.out.print("Password: ");
+                    String password = MainProgram.sc.nextLine();
+                    user.setAuthenticated(username, password);
+                    retry -= 1;
+                }while(!user.getauthenticated() && retry > 0);
+                System.out.println();
+                if(user.getauthenticated()){
+                    if(!user.getLoggedIn()){
+                        System.out.println("Please change your password on your first login!");
+                        changePasswordMenu(user);
+                        user.setLoggedIn(true);
+                    }
+                    return user;
+                }
+            }
+        }}
+    }
+
+    public static void authenticationMenu(User user){
+        
+
+        String menuText = "\n(1)\tView profile\n(2)\tChange password\n(3)\tExit\nChoice: ";
+        int choice = 0;
+        while(true){
+            System.out.print(menuText);
+            choice = MainProgram.sc.nextInt();
+            MainProgram.sc.nextLine();
+            switch(choice){
+                case 1: System.out.println(user.getUserInfo());break;
+                case 2: changePasswordMenu(user);break;
+                default: return;
+            }
+        }
+    }
+
+    private static void changePasswordMenu(User user){
+        
+        System.out.print("Enter new password: ");
+        String password1 = MainProgram.sc.nextLine();
+        System.out.print("Re-enter new password: ");
+        String password2 = MainProgram.sc.nextLine();
+        if(password1.equals(password2)){
+            Authentication auth = user.getAuthentication();
+            auth.setPassword(password2);
+            System.out.println("Password updated successfully!");
+        }
+        else{
+            System.out.println("Password does not match. Please try again...");
+        }
+        return;
+    }
+}
